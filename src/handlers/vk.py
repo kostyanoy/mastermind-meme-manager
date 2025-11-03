@@ -154,7 +154,7 @@ class VkHandler:
         )
         for item in reactions_response.items:
             for counter in item.counters:
-                if counter.reaction_id == 64:
+                if counter.reaction_id == 64 and counter.count > 1:
                     return
 
         history = await self.bot.api.messages.get_by_conversation_message_id(
