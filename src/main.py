@@ -2,6 +2,8 @@ import asyncio
 
 from telegram.ext import Application, CommandHandler
 from vkbottle.bot import Message, Bot
+from vkbottle_types import GroupTypes
+from vkbottle_types.events import GroupEventType
 
 from config.chats import load_chats_mapping
 from config.creds import load_vk_token, load_telegram_token
@@ -37,15 +39,55 @@ async def run_vk_bot(tg_handler):
     async def get_chat_id(message: Message):
         await message.answer(f"ID этого чата: {message.peer_id}")
 
-    @vk_bot.on.chat_message()
-    async def collect_message(message: Message):
-        if message.peer_id not in CHATS_MAPPING["vk"]:
-            print("Чат не в списке разрешенных")
+    @vk_bot.on.raw_event(
+        GroupEventType.MESSAGE_REACTION_EVENT, dataclass=GroupTypes.MessageReactionEvent
+    )
+    async def reaction_handler(event: GroupTypes.MessageReactionEvent):
+        peer_id = event.object.peer_id
+        cmid = event.object.cmid
+
+        # Реакция молнии
+        if event.object.reaction_id != 64:
             return
-        message_wrapper = await vk_handler.collect_message(message)
-        print(message_wrapper)
+        if peer_id not in CHATS_MAPPING["vk"]:
+            print(f"Чат {peer_id} не в списке разрешённых для VK")
+            return
+
+        # Получаем сообщение по его conversation_message_id
+        history = await vk_bot.api.messages.get_by_conversation_message_id(
+            peer_id=peer_id,
+            conversation_message_ids=[cmid],
+        )
+        if not history.items:
+            print("Сообщение не найдено")
+            return
+
+        original_message = history.items[0]
+        fake_message = Message(
+            id=original_message.id,
+            date=original_message.date,
+            from_id=original_message.from_id,
+            text=original_message.text,
+            peer_id=peer_id,
+            conversation_message_id=cmid,
+            attachments=original_message.attachments or [],
+            fwd_messages=original_message.fwd_messages or [],
+            out=0,
+            version=0
+        )
+
+        message_wrapper = await vk_handler.collect_message(fake_message)
         for chat_id in CHATS_MAPPING["telegram"]:
             await tg_handler.send_message(chat_id, message_wrapper)
+
+    # @vk_bot.on.chat_message()
+    # async def collect_message(message: Message):
+    #     if message.peer_id not in CHATS_MAPPING["vk"]:
+    #         print("Чат не в списке разрешенных")
+    #         return
+    #     message_wrapper = await vk_handler.collect_message(message)
+    #     for chat_id in CHATS_MAPPING["telegram"]:
+    #         await tg_handler.send_message(chat_id, message_wrapper)
 
     try:
         await vk_bot.run_polling()
