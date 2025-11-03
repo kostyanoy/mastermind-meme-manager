@@ -22,18 +22,20 @@ class TelegramHandler(BaseHandler):
             lines.append(f"*Сообщение*: {message.text}")
         if message.wall_text:
             lines.append(f"*Пост*:\n{message.wall_text}")
-        caption = "\n".join(lines)
 
         media = []
         if message.photos:
             for photo in message.photos:
-                if photo.file and os.path.exists(photo.file):
-                    media.append(InputMediaPhoto(media=open(photo.file, "rb")))
+                media.append(InputMediaPhoto(media=photo.url))
         elif message.videos:
             for video in message.videos:
                 if video.file and os.path.exists(video.file):
-                    media.append(InputMediaVideo(media=open(video.file, "rb")))
+                    with open(video.file, "rb") as f:
+                        media.append(InputMediaVideo(media=f.read()))
+                else:
+                    lines.append(f"Не удалось скачать видео: {video.url}")
 
+        caption = "\n".join(lines)
         if media:
             await self.bot.send_media_group(
                 chat_id=chat_id,

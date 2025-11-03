@@ -1,4 +1,5 @@
 import asyncio
+import tempfile
 
 from telegram.ext import Application, CommandHandler
 from vkbottle.bot import Message, Bot
@@ -45,13 +46,14 @@ async def run_vk_bot(tg_handler):
             print(f"Чат {event.object.peer_id} не в списке разрешённых для VK")
             return
 
-        message_wrapper = await vk_handler.process_reaction(event)
-        if message_wrapper is None:
-            return
+        with tempfile.TemporaryDirectory(prefix="vk_video_") as tmpdir:
+            message_wrapper = await vk_handler.process_reaction(event, tmpdir)
+            # print(message_wrapper)
+            if message_wrapper is None:
+                return
 
-        # print(message_wrapper)
-        for chat_id in CHATS_MAPPING["telegram"]:
-            await tg_handler.send_message(chat_id, message_wrapper)
+            for chat_id in CHATS_MAPPING["telegram"]:
+                await tg_handler.send_message(chat_id, message_wrapper)
 
     try:
         await vk_bot.run_polling()

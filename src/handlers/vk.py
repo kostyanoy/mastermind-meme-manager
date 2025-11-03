@@ -1,36 +1,20 @@
-import random
 from pathlib import Path
 
-import requests
 import yt_dlp
 from vkbottle.bot import Message
 from vkbottle_types import GroupTypes
 
 from src.wrappers.wrappers import MessageWrapper, VideoWrapper, PhotoWrapper
 
-DOWNLOAD_DIR = Path(__file__).parent.parent.parent / "download-vk"
-DOWNLOAD_DIR.mkdir(exist_ok=True)
-
 
 def download_photos_vk(urls):
     photos = []
     for i, url in enumerate(urls):
-        try:
-            response = requests.get(url)
-            response.raise_for_status()
-            content = response.content
-
-            filename = str(DOWNLOAD_DIR / f"photo_{random.randint(0, 10000)}.jpg")
-            with open(filename, "wb") as f:
-                f.write(content)
-
-            photos.append(PhotoWrapper(url, filename))
-        except Exception as e:
-            print(f"Не удалось скачать {url}: {e}")
+        photos.append(PhotoWrapper(url, None))
     return photos
 
 
-def download_videos_vk(urls):
+def download_videos_vk(urls, tmpdir):
     videos = []
     for i, url in enumerate(urls):
         try:
@@ -40,7 +24,7 @@ def download_videos_vk(urls):
                 'format': 'best',
                 'noplaylist': True,
                 'extract_flat': False,
-                'outtmpl': str(DOWNLOAD_DIR / f"video_{random.randint(0, 10000)}.%(ext)s"),
+                'outtmpl': str(Path(tmpdir) / "video_%(id)s.%(ext)s")
             }
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -117,7 +101,7 @@ class VkHandler:
     def __init__(self, bot):
         self.bot = bot
 
-    async def collect_message(self, message: Message, reactor_id):
+    async def collect_message(self, message: Message, reactor_id, tmpdir):
         author_id = message.from_id
         author = await self.bot.api.users.get(user_ids=[author_id])
         author_name = "Скрытый пользователь"
@@ -129,7 +113,7 @@ class VkHandler:
         videos_urls = collect_videos_vk(message)
 
         photos = download_photos_vk(photo_urls)
-        videos = download_videos_vk(videos_urls)
+        videos = download_videos_vk(videos_urls, tmpdir)
 
         reactor_name = "Скрытый пользователь"
         if reactor_id:
@@ -139,7 +123,7 @@ class VkHandler:
 
         return MessageWrapper(author_id, author_name, text, wall_text, photos, videos, reactor_id, reactor_name)
 
-    async def process_reaction(self, event: GroupTypes.MessageReactionEvent):
+    async def process_reaction(self, event: GroupTypes.MessageReactionEvent, tmpdir):
         peer_id = event.object.peer_id
         cmid = event.object.cmid
 
@@ -174,9 +158,9 @@ class VkHandler:
             peer_id=peer_id,
             conversation_message_id=cmid,
             attachments=original_message.attachments or [],
-            fwd_messages=original_message.fwd_messages or [],
+            fwd_messages=[],
             out=0,
             version=0
         )
 
-        return await self.collect_message(fake_message, event.object.reacted_id)
+        return await self.collect_message(fake_message, event.object.reacted_id, tmpdir)
