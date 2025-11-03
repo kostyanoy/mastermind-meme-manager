@@ -16,6 +16,8 @@ class TelegramHandler(BaseHandler):
             return
 
         lines = [f"*Автор*: {message.author_name} ({message.author_id})"]
+        if message.reactor_id:
+            lines.append(f"*Одобрил*: {message.reactor_name} ({message.reactor_id})")
         if message.text:
             lines.append(f"*Сообщение*: {message.text}")
         if message.wall_text:

@@ -4,6 +4,7 @@ from pathlib import Path
 import requests
 import yt_dlp
 from vkbottle.bot import Message
+from vkbottle_types import GroupTypes
 
 from src.wrappers.wrappers import MessageWrapper, VideoWrapper, PhotoWrapper
 
@@ -116,13 +117,12 @@ class VkHandler:
     def __init__(self, bot):
         self.bot = bot
 
-    async def collect_message(self, message: Message):
+    async def collect_message(self, message: Message, reactor_id):
         author_id = message.from_id
         author = await self.bot.api.users.get(user_ids=[author_id])
+        author_name = "Скрытый пользователь"
         if author:
             author_name = f'{author[0].first_name} {author[0].last_name}'
-        else:
-            author_name = "Скрытый пользователь"
         text = message.text
         wall_text = "\n".join(collect_wall_texts(message))
         photo_urls = collect_photos_vk(message)
@@ -131,10 +131,52 @@ class VkHandler:
         photos = download_photos_vk(photo_urls)
         videos = download_videos_vk(videos_urls)
 
-        print(f"Автор: {author_name} ({author_id})")
-        print(f"Текст: {text}")
-        print(f"Текст поста: {wall_text}")
-        print(f"Фото ({len(photos)}): {photos}")
-        print(f"Видео ({len(videos)}): {videos}")
+        reactor_name = "Скрытый пользователь"
+        if reactor_id:
+            reactor = await self.bot.api.users.get(user_ids=[reactor_id])
+            if reactor:
+                reactor_name = f'{reactor[0].first_name} {reactor[0].last_name}'
 
-        return MessageWrapper(author_id, author_name, text, wall_text, photos, videos)
+        return MessageWrapper(author_id, author_name, text, wall_text, photos, videos, reactor_id, reactor_name)
+
+    async def process_reaction(self, event: GroupTypes.MessageReactionEvent):
+        peer_id = event.object.peer_id
+        cmid = event.object.cmid
+
+        # Реакция молнии
+        if event.object.reaction_id != 64:
+            return
+
+        # Не пересылать, если уже есть реакция молнии
+        reactions_response = await self.bot.api.messages.get_messages_reactions(
+            peer_id=peer_id,
+            cmids=[cmid],
+        )
+        for item in reactions_response.items:
+            for counter in item.counters:
+                if counter.reaction_id == 64:
+                    return
+
+        history = await self.bot.api.messages.get_by_conversation_message_id(
+            peer_id=peer_id,
+            conversation_message_ids=[cmid],
+        )
+        if not history.items:
+            print("Сообщение не найдено")
+            return
+
+        original_message = history.items[0]
+        fake_message = Message(
+            id=original_message.id,
+            date=original_message.date,
+            from_id=original_message.from_id,
+            text=original_message.text,
+            peer_id=peer_id,
+            conversation_message_id=cmid,
+            attachments=original_message.attachments or [],
+            fwd_messages=original_message.fwd_messages or [],
+            out=0,
+            version=0
+        )
+
+        return await self.collect_message(fake_message, event.object.reacted_id)
