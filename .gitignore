@@ -1,0 +1,5 @@
+# auto generated
+.idea
+
+# tokens, creds
+.env
