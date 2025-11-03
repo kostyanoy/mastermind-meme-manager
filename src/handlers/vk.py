@@ -1,15 +1,15 @@
-import os
 import random
+from pathlib import Path
 
 import requests
 import yt_dlp
-from vkbottle.bot import Message, Bot
+from vkbottle.bot import Message
 
 from src.handlers.base import BaseHandler
 from src.wrappers.wrappers import MessageWrapper, VideoWrapper, PhotoWrapper
 
-DOWNLOAD_DIR = "download-vk"
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+DOWNLOAD_DIR = Path(__file__).parent.parent.parent / "download-vk"
+DOWNLOAD_DIR.mkdir(exist_ok=True)
 
 
 def download_photos_vk(urls):
@@ -20,7 +20,7 @@ def download_photos_vk(urls):
             response.raise_for_status()
             content = response.content
 
-            filename = os.path.join(DOWNLOAD_DIR, f"photo_{random.randint(0, 10000)}.jpg")
+            filename = str(DOWNLOAD_DIR / f"photo_{random.randint(0, 10000)}.jpg")
             with open(filename, "wb") as f:
                 f.write(content)
 
@@ -40,8 +40,7 @@ def download_videos_vk(urls):
                 'format': 'best',
                 'noplaylist': True,
                 'extract_flat': False,
-                'outtmpl': os.path.join(DOWNLOAD_DIR, f"video_{random.randint(0, 10000)}.%(ext)s"),
-                # Сохраняем сразу на диск
+                'outtmpl': str(DOWNLOAD_DIR / f"video_{random.randint(0, 10000)}.%(ext)s"),
             }
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -100,12 +99,9 @@ def collect_videos_vk(message: Message) -> list[str]:
     return videos
 
 
-class VkHandler(BaseHandler):
+class VkHandler:
     def __init__(self, bot):
         self.bot = bot
-
-    def send_message(self, message: MessageWrapper):
-        pass
 
     async def collect_message(self, message: Message):
         author_id = message.from_id
