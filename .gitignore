@@ -3,3 +3,4 @@
 
 # tokens, creds
 .env
+chats_mapping.json
