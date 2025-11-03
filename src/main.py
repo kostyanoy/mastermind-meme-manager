@@ -18,7 +18,6 @@ async def run_telegram_bot():
         chat_id = update.effective_chat.id
         await update.message.reply_text(f"ID этого чата: `{chat_id}`", parse_mode="Markdown")
 
-    # tg_bot = telegram.Bot(TELEGRAM_TOKEN)
     tg_app = Application.builder().token(TELEGRAM_TOKEN).build()
     tg_app.add_handler(CommandHandler("chatid", get_chat_id))
     tg_handler = TelegramHandler(tg_app.bot)

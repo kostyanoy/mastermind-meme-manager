@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-from typing import List
 
 CHATS_MAPPING = Path(__file__).parent.parent.parent / "chats_mapping.json"
 

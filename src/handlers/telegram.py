@@ -15,7 +15,12 @@ class TelegramHandler(BaseHandler):
             print("Пустое сообщение")
             return
 
-        caption = f"Автор: {message.author_name} ({message.author_id})\nСообщение: {message.text}"
+        lines = [f"*Автор*: {message.author_name} ({message.author_id})"]
+        if message.text:
+            lines.append(f"*Сообщение*: {message.text}")
+        if message.wall_text:
+            lines.append(f"*Пост*:\n{message.wall_text}")
+        caption = "\n".join(lines)
 
         media = []
         if message.photos:
@@ -25,18 +30,18 @@ class TelegramHandler(BaseHandler):
         elif message.videos:
             for video in message.videos:
                 if video.file and os.path.exists(video.file):
-                    media.append(InputMediaVideo(media=video.file))
+                    media.append(InputMediaVideo(media=open(video.file, "rb")))
 
-        print("GOT MESSAGE WRAPPER")
         if media:
             await self.bot.send_media_group(
                 chat_id=chat_id,
                 caption=caption,
-                media=media
+                media=media,
+                parse_mode="markdown"
             )
         else:
             await self.bot.send_message(
                 chat_id=chat_id,
-                text=caption
+                text=caption,
+                parse_mode="markdown"
             )
-        print("SENT")

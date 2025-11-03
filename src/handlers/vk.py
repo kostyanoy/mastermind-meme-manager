@@ -5,7 +5,6 @@ import requests
 import yt_dlp
 from vkbottle.bot import Message
 
-from src.handlers.base import BaseHandler
 from src.wrappers.wrappers import MessageWrapper, VideoWrapper, PhotoWrapper
 
 DOWNLOAD_DIR = Path(__file__).parent.parent.parent / "download-vk"
@@ -53,6 +52,27 @@ def download_videos_vk(urls):
     return videos
 
 
+def collect_wall_texts(message: Message) -> list[str]:
+    def extract_wall_texts(attachments):
+        texts = []
+        if not attachments:
+            return texts
+        for att in attachments:
+            if att.type == "wall":
+                wall = att.wall
+                if wall and wall.text:
+                    texts.append(wall.text.strip())
+                if wall and wall.attachments:
+                    texts.extend(extract_wall_texts(wall.attachments))
+        return texts
+
+    all_texts = []
+    all_texts.extend(extract_wall_texts(message.attachments))
+    for fwd in message.fwd_messages:
+        all_texts.extend(extract_wall_texts(fwd.attachments))
+    return all_texts
+
+
 def collect_photos_vk(message: Message) -> list[str]:
     def extract_from_attachments(attachments):
         urls = []
@@ -61,20 +81,16 @@ def collect_photos_vk(message: Message) -> list[str]:
         for att in attachments:
             if att.type == "photo":
                 photo = att.photo
-                print(photo)
                 max_size = max(photo.sizes, key=lambda s: s.width * s.height)
                 urls.append(max_size.url)
-            elif att.type == "wall":
-                wall = att.wall
-                if wall and wall.attachments:
-                    urls.extend(extract_from_attachments(wall.attachments))
+            elif att.type == "wall" and att.wall and att.wall.attachments:
+                urls.extend(extract_from_attachments(att.wall.attachments))
         return urls
 
-    photos = []
-    photos.extend(extract_from_attachments(message.attachments))
+    urls = extract_from_attachments(message.attachments)
     for fwd in message.fwd_messages:
-        photos.extend(extract_from_attachments(fwd.attachments))
-    return photos
+        urls.extend(extract_from_attachments(fwd.attachments))
+    return urls
 
 
 def collect_videos_vk(message: Message) -> list[str]:
@@ -86,17 +102,14 @@ def collect_videos_vk(message: Message) -> list[str]:
             if att.type == "video":
                 video = att.video
                 urls.append(f"https://vk.com/video{video.owner_id}_{video.id}")
-            elif att.type == "wall":
-                wall = att.wall
-                if wall and wall.attachments:
-                    urls.extend(extract_from_attachments(wall.attachments))
+            elif att.type == "wall" and att.wall and att.wall.attachments:
+                urls.extend(extract_from_attachments(att.wall.attachments))
         return urls
 
-    videos = []
-    videos.extend(extract_from_attachments(message.attachments))
+    urls = extract_from_attachments(message.attachments)
     for fwd in message.fwd_messages:
-        videos.extend(extract_from_attachments(fwd.attachments))
-    return videos
+        urls.extend(extract_from_attachments(fwd.attachments))
+    return urls
 
 
 class VkHandler:
@@ -111,6 +124,7 @@ class VkHandler:
         else:
             author_name = "Скрытый пользователь"
         text = message.text
+        wall_text = "\n".join(collect_wall_texts(message))
         photo_urls = collect_photos_vk(message)
         videos_urls = collect_videos_vk(message)
 
@@ -119,7 +133,8 @@ class VkHandler:
 
         print(f"Автор: {author_name} ({author_id})")
         print(f"Текст: {text}")
+        print(f"Текст поста: {wall_text}")
         print(f"Фото ({len(photos)}): {photos}")
         print(f"Видео ({len(videos)}): {videos}")
 
-        return MessageWrapper(author_id, author_name, text, photos, videos)
+        return MessageWrapper(author_id, author_name, text, wall_text, photos, videos)
