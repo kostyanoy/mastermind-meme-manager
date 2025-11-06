@@ -42,7 +42,8 @@ async def run_vk_bot(tg_handler):
 
     @vk_bot.on.raw_event(GroupEventType.MESSAGE_REACTION_EVENT, dataclass=GroupTypes.MessageReactionEvent)
     async def reaction_handler(event: GroupTypes.MessageReactionEvent):
-        if event.object.peer_id not in CHATS_MAPPING["vk"]:
+        peer_id = event.object.peer_id
+        if peer_id not in CHATS_MAPPING["vk_mapping"]:
             print(f"Чат {event.object.peer_id} не в списке разрешённых для VK")
             return
 
@@ -52,7 +53,7 @@ async def run_vk_bot(tg_handler):
             if message_wrapper is None:
                 return
 
-            for chat_id in CHATS_MAPPING["telegram"]:
+            for chat_id in CHATS_MAPPING["vk_mapping"][peer_id]:
                 await tg_handler.send_message(chat_id, message_wrapper)
 
     try:

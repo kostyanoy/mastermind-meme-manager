@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-CHATS_MAPPING = Path(__file__).parent.parent.parent / "chats_mapping.json"
+CHATS_MAPPING = Path(__file__).parents[2] / "chats_mapping.json"
 
 
 def load_chats_mapping() -> dict:
@@ -12,20 +12,32 @@ def load_chats_mapping() -> dict:
         data = json.load(f)
 
     # Валидация
-    if "vk" not in data or "telegram" not in data:
-        raise ValueError("Файл должен содержать ключи 'vk' и 'telegram'")
+    if "vk_mapping" not in data:
+        raise ValueError("Файл должен содержать ключ 'vk_mapping'")
 
-    if not isinstance(data["vk"], list) or not isinstance(data["telegram"], list):
-        raise ValueError("Значения 'vk' и 'telegram' должны быть списками")
+    vk_mapping = data["vk_mapping"]
+
+    if not isinstance(vk_mapping, dict):
+        raise ValueError("'vk_mapping' должен быть объектом (словарём в Python)")
 
     # Преобразуем всё в int (на случай, если в JSON были строки)
-    try:
-        vk_ids = [int(x) for x in data["vk"]]
-        tg_ids = [int(x) for x in data["telegram"]]
-    except (ValueError, TypeError) as e:
-        raise ValueError("Все ID должны быть числами (или строками с числами)") from e
+    result = {}
+    for vk_key, tg_list in vk_mapping.items():
+        try:
+            vk_id = int(vk_key)
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Некорректный VK ID: {vk_key}") from e
+
+        if not isinstance(tg_list, list):
+            raise ValueError(f"Для VK ID {vk_id} значение должно быть списком Telegram ID")
+
+        try:
+            tg_ids = [int(tg_id) for tg_id in tg_list]
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Некорректные Telegram ID для VK {vk_id}: {tg_list}") from e
+
+        result[vk_id] = tg_ids
 
     return {
-        "vk": vk_ids,
-        "telegram": tg_ids
+        "vk_mapping": result,
     }
