@@ -6,8 +6,8 @@ from vkbottle.bot import Message, Bot
 from vkbottle_types import GroupTypes
 from vkbottle_types.events import GroupEventType
 
-from config.chats import load_chats_mapping
-from config.creds import load_vk_token, load_telegram_token
+from src.config.chats import load_chats_mapping
+from src.config.creds import load_vk_token, load_telegram_token
 from src.handlers.telegram import TelegramHandler
 from src.handlers.vk import VkHandler
 
